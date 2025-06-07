@@ -110,8 +110,9 @@ drawGame (GameState (Snake b _) (Food f) _ over _) =
   where
     toScreen (Position x y) = (fromIntegral x * cellSize' - offsetX, fromIntegral y * cellSize' - offsetY)
     cellSize' = fromIntegral cellSize
-    offsetX = fromIntegral (boardWidth * cellSize) / 2
-    offsetY = fromIntegral (boardHeight * cellSize) / 2
+    -- center of the board is 0, 0
+    offsetX = fromIntegral ((boardWidth - 1) * cellSize) / 2
+    offsetY = fromIntegral ((boardHeight - 1) * cellSize) / 2 
 
     drawCell pos col = Translate x y $ Color col $ rectangleSolid cellSize' cellSize'
       where (x, y) = toScreen pos
