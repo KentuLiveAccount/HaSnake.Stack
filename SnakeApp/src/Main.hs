@@ -16,11 +16,13 @@ data Snake = Snake
 
 newtype Food = Food Position deriving (Show, Eq)
 
+data GameMode = Start | Playing | GameOver deriving (Eq, Show)
+
 data GameState = GameState
   { snake      :: Snake
   , food       :: Food
   , score      :: Int
-  , isGameOver :: Bool
+  , mode       :: GameMode
   , rng        :: StdGen
   }
 
@@ -36,7 +38,7 @@ initialState gen = GameState
   { snake = Snake [Position 10 10] RightDir
   , food = Food (Position 5 5)
   , score = 0
-  , isGameOver = False
+  , mode = Start
   , rng = gen
   }
 
@@ -73,8 +75,9 @@ spawnFood occupied gen =
   in (Food (empty !! i), gen')
 
 updateGame :: Float -> GameState -> GameState
-updateGame _ gs@(GameState _ _ _ True _) = gs  -- Game over
-updateGame _ gs@(GameState snake@(Snake b dir) (Food f) score _ gen) =
+updateGame _ gs@(GameState _ _ _ Start _) = gs  -- No update in start screen
+updateGame _ gs@(GameState _ _ _ GameOver _) = gs  -- Game over
+updateGame _ gs@(GameState snake@(Snake b dir) (Food f) score Playing gen) =
   let nextHead = nextPosition (head b) dir
       ateFood = nextHead == f
       newSnake = if ateFood then growSnake snake else moveSnake snake
@@ -82,10 +85,13 @@ updateGame _ gs@(GameState snake@(Snake b dir) (Food f) score _ gen) =
       (newFood, gen') = if ateFood then spawnFood newBody gen else (Food f, gen)
       collision = not (isInsideBounds nextHead) || hasSelfCollision newBody
       newScore = if ateFood then score + 1 else score
-  in GameState newSnake newFood newScore collision gen'
+      newMode = if collision then GameOver else Playing
+  in GameState newSnake newFood newScore newMode gen'
 
 handleEvent :: Event -> GameState -> GameState
-handleEvent (EventKey (SpecialKey key) Down _ _) gs@(GameState s@(Snake b dir) f sc over gen) =
+handleEvent (EventKey (SpecialKey KeyEnter) Down _ _) gs@(GameState _ _ _ Start gen) = (initialState gen) { mode = Playing }
+handleEvent (EventKey (SpecialKey KeyEnter) Down _ _) gs@(GameState _ _ _ GameOver gen) = (initialState gen) { mode = Playing }
+handleEvent (EventKey (SpecialKey key) Down _ _) gs@(GameState s@(Snake b dir) f sc Playing gen) =
   let newDir = case key of
         KeyUp    -> Just UpDir
         KeyDown  -> Just DownDir
@@ -105,23 +111,26 @@ isOpposite RightDir LeftDir = True
 isOpposite _ _ = False
 
 drawGame :: GameState -> Picture
-drawGame (GameState (Snake b _) (Food f) _ over _) =
-  Pictures (gridLines ++ snakePics ++ [foodPic] ++ gameOverText)
+drawGame (GameState (Snake b _) (Food f) score mode _) =
+  Pictures (case mode of
+    Start    -> [Translate (-140) 0 $ Scale 0.2 0.2 $ Color white $ Text "Press Enter to Start"]
+    GameOver -> [Translate (-140) 40 $ Scale 0.2 0.2 $ Color red $ Text "Game Over"
+                ,Translate (-100) (-40) $ Scale 0.2 0.2 $ Color white $ Text "Press Enter to Restart"]
+    Playing  -> gridLines ++ snakePics ++ [foodPic] ++ [scoreText])
   where
-    toScreen (Position x y) = (fromIntegral x * cellSize' - offsetX, fromIntegral y * cellSize' - offsetY)
+    toScreen (Position x y) = (fromIntegral  x * cellSize' - offsetX + halfCell, fromIntegral y * cellSize' - offsetY + halfCell)
     cellSize' = fromIntegral cellSize
-    -- center of the board is 0, 0
-    offsetX = fromIntegral ((boardWidth - 1) * cellSize) / 2
-    offsetY = fromIntegral ((boardHeight - 1) * cellSize) / 2 
+    halfCell = cellSize' / 2
+    offsetX = fromIntegral (boardWidth * cellSize) / 2
+    offsetY = fromIntegral (boardHeight * cellSize) / 2
 
     drawCell pos col = Translate x y $ Color col $ rectangleSolid cellSize' cellSize'
       where (x, y) = toScreen pos
 
     snakePics = map (`drawCell` green) b
     foodPic = drawCell f red
-    gameOverText = if over
-                   then [Translate (-100) 0 $ Scale 0.3 0.3 $ Color white $ Text "Game Over"]
-                   else []
+    scoreText = Translate (offsetX + fromIntegral 10) (offsetY - fromIntegral 20) $
+                Scale 0.15 0.15 $ Color white $ Text ("Score: " ++ show score)
 
     gridLines = [] -- Optional: add grid if needed
 
