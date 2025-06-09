@@ -17,6 +17,9 @@ build-type:     Simple
 extra-source-files:
     README.md
     CHANGELOG.md
+    food.wav
+data-files:
+    food.wav
 
 source-repository head
   type: git
@@ -25,9 +28,10 @@ source-repository head
 library
   other-modules:
       Paths_SnakeApp
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , bytestring >=0.12.1.0
     , gloss >=1.11.1.1
     , random >=1.2
   default-language: Haskell2010
@@ -35,12 +39,14 @@ library
 executable SnakeApp
   main-is: Main.hs
   other-modules:
+      SoundLib
       Paths_SnakeApp
   hs-source-dirs:
       src
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring >=0.12.1.0
     , gloss >=1.11.1.1
     , random >=1.2
   default-language: Haskell2010

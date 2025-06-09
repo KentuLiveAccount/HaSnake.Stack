@@ -9,6 +9,7 @@ copyright:           "2022 Author name here"
 extra-source-files:
 - README.md
 - CHANGELOG.md
+- food.wav
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -23,6 +24,10 @@ dependencies:
 - base >= 4.7 && < 5
 - random >= 1.2
 - gloss >= 1.11.1.1
+- bytestring >= 0.12.1.0
+
+data-files:
+- food.wav
 
 ghc-options:
 - -Wall
@@ -32,7 +37,6 @@ ghc-options:
 - -Wincomplete-uni-patterns
 - -Wmissing-export-lists
 - -Wmissing-home-modules
-- -Wpartial-fields
 - -Wredundant-constraints
 
 library:
@@ -47,3 +51,5 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies: []
+    data-files:
+    - food.wav

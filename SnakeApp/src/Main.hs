@@ -1,8 +1,10 @@
 -- SnakeGame.hs
 
 import Graphics.Gloss
-import Graphics.Gloss.Interface.Pure.Game
+import Graphics.Gloss.Interface.IO.Game
 import System.Random (StdGen, getStdGen, randomR)
+import Paths_SnakeApp (getDataFileName)
+import SoundLib
 
 -- Position on the board
 data Position = Position Int Int deriving (Eq, Show)
@@ -24,6 +26,7 @@ data GameState = GameState
   , score      :: Int
   , mode       :: GameMode
   , rng        :: StdGen
+  , wav        :: WaveData
   }
 
 -- Board size
@@ -33,13 +36,14 @@ boardHeight = 20
 cellSize = 20
 
 -- Initial State
-initialState :: StdGen -> GameState
-initialState gen = GameState
+initialState :: StdGen -> WaveData -> GameState
+initialState gen wav = GameState
   { snake = Snake [Position 10 10] RightDir
   , food = Food (Position 5 5)
   , score = 0
   , mode = Start
   , rng = gen
+  , wav = wav
   }
 
 -- Move logic
@@ -74,10 +78,8 @@ spawnFood occupied gen =
       (i, gen') = randomR (0, length empty - 1) gen
   in (Food (empty !! i), gen')
 
-updateGame :: Float -> GameState -> GameState
-updateGame _ gs@(GameState _ _ _ Start _) = gs  -- No update in start screen
-updateGame _ gs@(GameState _ _ _ GameOver _) = gs  -- Game over
-updateGame _ gs@(GameState snake@(Snake b dir) (Food f) score Playing gen) =
+updateGameIO :: Float -> GameState -> IO GameState
+updateGameIO _ gs@(GameState snake@(Snake b dir) (Food f) score Playing gen wav) =
   let nextHead = nextPosition (head b) dir
       ateFood = nextHead == f
       newSnake = if ateFood then growSnake snake else moveSnake snake
@@ -86,12 +88,19 @@ updateGame _ gs@(GameState snake@(Snake b dir) (Food f) score Playing gen) =
       collision = not (isInsideBounds nextHead) || hasSelfCollision newBody
       newScore = if ateFood then score + 1 else score
       newMode = if collision then GameOver else Playing
-  in GameState newSnake newFood newScore newMode gen'
+      newState = GameState newSnake newFood newScore newMode gen' wav
+  in do
+    if ateFood then playWavFromMemory wav else pure ()
+    return newState
+updateGameIO _ x = return x
+
+handleEventIO :: Event -> GameState -> IO GameState
+handleEventIO e gs = return (handleEvent e gs)
 
 handleEvent :: Event -> GameState -> GameState
-handleEvent (EventKey (SpecialKey KeyEnter) Down _ _) gs@(GameState _ _ _ Start gen) = (initialState gen) { mode = Playing }
-handleEvent (EventKey (SpecialKey KeyEnter) Down _ _) gs@(GameState _ _ _ GameOver gen) = (initialState gen) { mode = Playing }
-handleEvent (EventKey (SpecialKey key) Down _ _) gs@(GameState s@(Snake b dir) f sc Playing gen) =
+handleEvent (EventKey (SpecialKey KeyEnter) Down _ _) gs@(GameState _ _ _ Start gen wav) = (initialState gen wav) { mode = Playing }
+handleEvent (EventKey (SpecialKey KeyEnter) Down _ _) gs@(GameState _ _ _ GameOver gen wav) = (initialState gen wav) { mode = Playing }
+handleEvent (EventKey (SpecialKey key) Down _ _) gs@(GameState s@(Snake b dir) f sc Playing gen _) =
   let newDir = case key of
         KeyUp    -> Just UpDir
         KeyDown  -> Just DownDir
@@ -111,7 +120,7 @@ isOpposite RightDir LeftDir = True
 isOpposite _ _ = False
 
 drawGame :: GameState -> Picture
-drawGame (GameState (Snake b _) (Food f) score mode _) =
+drawGame (GameState (Snake b _) (Food f) score mode _ _) =
   Pictures (case mode of
     Start    -> [Translate (-140) 0 $ Scale 0.2 0.2 $ Color white $ Text "Press Enter to Start"]
     GameOver -> [Translate (-140) 40 $ Scale 0.2 0.2 $ Color red $ Text "Game Over"
@@ -134,14 +143,16 @@ drawGame (GameState (Snake b _) (Food f) score mode _) =
 
     gridLines = [] -- Optional: add grid if needed
 
-main :: IO ()
 main = do
+  th <- getDataFileName "food.wav"
+  putStrLn th
+  wav <- loadWav th
   gen <- getStdGen
-  play
+  playIO
     (InWindow "Snake" (boardWidth * cellSize, boardHeight * cellSize) (100, 100))
     black          -- background
     10             -- FPS
-    (initialState gen)
-    drawGame       -- render
-    handleEvent    -- input handler
-    updateGame     -- update function
+    (initialState gen wav)
+      (pure . drawGame)       -- render
+    handleEventIO    -- input handler
+    updateGameIO     -- update function
